@@ -1,18 +1,24 @@
 //
 //  MessagesViewController.swift
-//  keysgpt MessagesExtension
+//  MessageEnhancer MessagesExtension
 //
-//  Created by Logan Orr on 1/30/23.
+//  Created by Logan Orr on 1/28/23.
 //
 
 import UIKit
 import Messages
 
-class MessagesViewController: MSMessagesAppViewController {
+class MessagesViewController: MSMessagesAppViewController, UITextFieldDelegate {
+    @IBOutlet weak var input_field: UITextField!
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
+//        self.MSMessagesAppPresentationStyle = .expanded
+        self.requestPresentationStyle(MSMessagesAppPresentationStyle.expanded)
+//        if self.presentationStyle == MSMessagesAppPresentationStyle.expanded {
+//           self.requestPresentationStyle(MSMessagesAppPresentationStyle.compact)
+//        }
     }
     
     // MARK: - Conversation Handling
@@ -61,6 +67,38 @@ class MessagesViewController: MSMessagesAppViewController {
         // Called after the extension transitions to a new presentation style.
     
         // Use this method to finalize any behaviors associated with the change in presentation style.
+        if case .expanded = presentationStyle {
+            input_field.becomeFirstResponder()
+        }
+    }
+    
+    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+        switch presentationStyle {
+        case .compact:
+            requestPresentationStyle(.expanded)
+            return false
+        case .expanded:
+            return true
+        default:
+            return false
+        }
     }
 
+    @IBAction func submit_clicked(_ sender: Any) {
+        Task {
+            let new_message = await GPTTEXTClient().generate(message: input_field.text!)
+            if let new_message = new_message {
+                requestPresentationStyle(.compact)
+                DispatchQueue.main.async {
+                    if let conversation = self.activeConversation {
+                        conversation.insertText(new_message, completionHandler: { (error) in
+                            if let error = error {
+                                print(error)
+                            }
+                        })
+                    }
+                }
+            }
+        }
+    }
 }
